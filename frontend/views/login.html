@@ -1,0 +1,54 @@
+<!-- login.html  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Login – Health Assistant</title>
+<style>
+  body,html{margin:0;height:100%;font-family:Segoe UI,Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,#a8edea 0%,#fed6e3 100%);display:flex;align-items:center;justify-content:center}
+  .card{width:min(460px,92vw);background:#fff;border-radius:20px;box-shadow:0 15px 35px rgba(0,0,0,.1);padding:28px}
+  h1{margin:0 0 8px;color:#2b395b}
+  p.sub{margin:0 0 18px;color:#5b6b8b}
+  .row{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+  input{padding:14px 16px;border:2px solid #d1dbff;border-radius:14px;font-size:1rem;outline-offset:2px}
+  input:focus{border-color:#4a90e2;box-shadow:0 0 8px #4a90e2aa}
+  .btn{background:#4a90e2;color:#fff;border:none;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer;box-shadow:0 5px 14px rgba(74,144,226,.4)}
+  .btn:hover{background:#357ABD}
+  .btn-google{width:100%;background:#fff;border:2px solid #d1dbff;color:#2b395b}
+  .btn-google:hover{background:#f5f8ff}
+  .split{display:flex;align-items:center;gap:10px;margin:10px 0;color:#5b6b8b}
+  .split::before,.split::after{content:"";flex:1;height:1px;background:#e3eaf7}
+  .muted{color:#5b6b8b;font-size:.95rem}
+  .err{color:#c62828;margin-top:8px}
+  .ok{color:#2e7d32;margin-top:8px}
+  a{color:#4a90e2;text-decoration:none}
+  a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Welcome back</h1>
+    <p class="sub">Log in to continue your chats.</p>
+
+    <div class="row">
+      <!-- Make sure this is NOT a submit button -->
+      <button class="btn btn-google" id="googleBtn" type="button">Continue with Google</button>
+    </div>
+
+    <div class="split">or</div>
+
+    <form id="loginForm" class="row" novalidate>
+      <input name="username" placeholder="Username" required autofocus />
+      <input name="password" type="password" placeholder="Password" required />
+      <button class="btn" type="submit">Log in</button>
+      <div id="msg" class=""></div>
+    </form>
+
+    <p class="muted">New here? <a href="/signup">Create an account</a></p>
+  </div>
+
+  <!-- External script (served from /frontend/assets/js) -->
+  <script src="/assets/js/login.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,306 @@
+<!-- index.html  -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FitnLive — Your Personal Health Companion</title>
+  <meta name="description" content="FitnLive helps you build sustainable habits with personalized diet, exercise, and recovery guidance." />
+  <link rel="icon" href="/physical-health-chatbot/frontend/assets/images/favicon.png" />
+  <style>
+    /* ========== Reset ========== */
+    * { box-sizing: border-box; text-decoration: none;}
+    html, body { margin: 0; padding: 0; height: 100%; scroll-behavior: smooth; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #1e2a44;
+      /* animated gradient background */
+      background: linear-gradient(135deg, #a8edea, #fed6e3, #c7ceff);
+      background-size: 200% 200%;
+      animation: bgShift 18s ease-in-out infinite;
+    }
+    @keyframes bgShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Soft glass panel wrapper */
+    .page-wrap {
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    
+
+    /* ========== Navbar ========== */
+    .nav {
+      max-width: 1200px; margin: 14px auto 0; width: 92vw;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      backdrop-filter: blur(8px);
+      background: rgba(255,255,255,.55);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.08);
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; letter-spacing: .2px; color: #234;
+    }
+    .brand-logo {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: grid; place-items: center; color: #4a90e2; background: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1); font-weight: 800;
+    }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer;
+      font-weight: 700; box-shadow: 0 6px 20px rgba(74,144,226,.25);
+      transition: transform .05s ease, box-shadow .25s ease, background .25s ease, color .25s ease;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn.link {
+      background: transparent; box-shadow: none; color: #274168; font-weight: 700;
+    }
+    .btn.primary {
+      background: #4a90e2; color: #fff;
+    }
+    .btn.primary:hover { background: #357ABD; }
+    .menu-toggle {
+      display: none; width: 40px; height: 40px; border-radius: 10px;
+      border: 2px solid #d5def8; background: #fff; color:#2b3e67; font-weight:800;
+    }
+
+    /* ========== Hero ========== */
+    .hero {
+      max-width: 1200px; margin: 22px auto 0; width: 92vw;
+      display: grid; grid-template-columns: 1.05fr .95fr; gap: 24px;
+      align-items: center;
+    }
+    .hero-card {
+      background: #fff; border-radius: 20px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.12);
+      padding: clamp(18px, 2.5vw, 28px);
+    }
+    .hero h1 {
+      margin: 0 0 8px; font-size: clamp(1.6rem, 3.4vw, 2.4rem); color:#203154;
+    }
+    .hero p.sub { margin: 0 0 18px; color: #526084; line-height: 1.5; }
+    .hero-cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .hero-cta .btn { padding: 12px 16px; }
+    .hero-img-card {
+      position: relative; overflow: hidden;
+      display: grid; place-items: center;
+    }
+    .hero-img {
+      width: 100%; max-width: 560px; border-radius: 16px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.15);
+    }
+    .blob {
+      position: absolute; width: 260px; height: 260px; border-radius: 50%;
+      filter: blur(40px); opacity: .35; z-index: 0;
+      animation: floaty 12s ease-in-out infinite alternate;
+    }
+    .blob.one { background: #a8edea; top: -40px; left: -40px; }
+    .blob.two { background: #fed6e3; bottom: -40px; right: -40px; animation-delay: .8s; }
+    @keyframes floaty {
+      to { transform: translate(20px, -10px) scale(1.06); }
+    }
+
+    /* ========== Features ========== */
+    .section {
+      max-width: 1200px; margin: 24px auto; width: 92vw;
+    }
+    .section h2 {
+      font-size: clamp(1.2rem, 2.8vw, 1.6rem);
+      margin: 0 0 12px; color: #203154;
+    }
+    .grid {
+      display: grid; gap: 14px; grid-template-columns: repeat(3, 1fr);
+    }
+    .card {
+      background: #fff; border-radius: 16px; padding: 16px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.08); min-height: 150px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .card h3 { margin: 0; font-size: 1.05rem; color: #1f2a44; }
+    .card p  { margin: 0; color: #4c5b80; line-height: 1.45; }
+    .card img {
+      width: 100%; border-radius: 12px; margin-top: 6px; object-fit: cover; max-height: 140px;
+    }
+
+    /* ========== Testimonials ========== */
+    .testi-wrap {
+      display: grid; gap: 14px; grid-template-columns: repeat(3, 1fr);
+    }
+    .testi {
+      background: #ffffffdb; border-radius: 16px; padding: 16px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.09);
+      display: grid; gap: 10px;
+    }
+    .testi .who { display: flex; align-items:center; gap: 10px; }
+    .avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: #e7eeff; display: grid; place-items: center; font-weight: 800; color: #3b4f8a;
+    }
+    .stars { color: #ffb703; letter-spacing: .5px; }
+
+    /* ========== Footer ========== */
+    footer {
+      margin-top: 24px; padding: 20px 0; color: #3a4a74;
+      background: rgba(255,255,255,.7); border-top: 1px solid #dfe7ff;
+    }
+    .foot-inner {
+      max-width: 1200px; width: 92vw; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      flex-wrap: wrap;
+    }
+    .foot-inner a { color: #2b3e67; text-decoration: none; font-weight: 600; }
+    .foot-inner a:hover { text-decoration: underline; }
+
+    /* ========== Responsive ========== */
+    @media (max-width: 1000px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-img { max-width: 520px; }
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .testi-wrap { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .nav { padding: 10px 12px; }
+      .menu-toggle { display: inline-block; }
+      .nav-right .btn.link { display: none; }
+      .grid { grid-template-columns: 1fr; }
+      .testi-wrap { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <!-- Navbar -->
+    <nav class="nav" aria-label="Main navigation">
+      <div class="brand">
+        <div class="brand-logo">F</div>
+        FitnLive
+      </div>
+      <div class="nav-right">
+        <a class="btn link" href="#features">Features</a>
+        <a class="btn link" href="#howitworks">How it works</a>
+        <a class="btn link" href="#testimonials">Stories</a>
+        <button id="menuToggle" class="menu-toggle" aria-label="Toggle menu">≡</button>
+        <a class="btn link" href="/login">Log in</a>
+        <a class="btn primary" href="/signup">Sign up</a>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <header class="hero">
+      <section class="hero-card">
+        <h1>Your personal health & fitness co-pilot</h1>
+        <p class="sub">
+          Build sustainable habits with personalized coaching for diet, training, sleep, and recovery.
+          FitnLive adapts to your goals and health profile — so every tip feels made just for you.
+        </p>
+        <div class="hero-cta">
+          <a class="btn primary" href="/signup">Get started</a>
+          <a class="btn link" href="/login">I already have an account</a>
+        </div>
+      </section>
+
+      <section class="hero-card hero-img-card" aria-label="Preview">
+        <span class="blob one"></span>
+        <span class="blob two"></span>
+        <!-- Place these images in /frontend/assets/images/ -->
+        <img class="hero-img" src="/assets/images/hero-fitness.jpg" alt="Person exercising with smartwatch tracking" />
+      </section>
+    </header>
+
+    <!-- Features -->
+    <section id="features" class="section" aria-labelledby="features-title">
+      <h2 id="features-title">Why FitnLive</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Personalized Coaching</h3>
+          <p>Plans adapt to your age, weight, goals, and dietary preferences — no copy-paste programs.</p>
+          <img src="/assets/images/feature-plan.jpg" alt="Personalized plan illustration">
+        </article>
+        <article class="card">
+          <h3>Healthy Eating, Simplified</h3>
+          <p>Balanced meal ideas and calorie guidance that suit your lifestyle and allergies.</p>
+          <img src="/assets/images/feature-food.jpg" alt="Healthy food bowls">
+        </article>
+        <article class="card">
+          <h3>Actionable Insights</h3>
+          <p>Gentle nudges and weekly summaries help you stay consistent and celebrate progress.</p>
+          <img src="/assets/images/feature-progress.jpg" alt="Progress charts">
+        </article>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="howitworks" class="section" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>1. Create your profile</h3>
+          <p>Share your basics — height, weight, preferences, and goals — so guidance fits you.</p>
+        </article>
+        <article class="card">
+          <h3>2. Chat naturally</h3>
+          <p>Ask about workouts, diet tweaks, hydration, or recovery. Get safe, beginner-friendly advice.</p>
+        </article>
+        <article class="card">
+          <h3>3. Iterate weekly</h3>
+          <p>Keep refining. FitnLive learns what works best for you — and keeps you motivated.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section id="testimonials" class="section" aria-labelledby="testi-title">
+      <h2 id="testi-title">Success stories</h2>
+      <div class="testi-wrap">
+        <figure class="testi">
+          <div class="who">
+            <div class="avatar">S</div>
+            <figcaption><strong>Sam</strong> • 6.5 kg down</figcaption>
+          </div>
+          <div class="stars">★★★★★</div>
+          <blockquote style="margin:0;color:#415070;">
+            Simple tips that actually fit my day. I finally feel consistent.
+          </blockquote>
+        </figure>
+        <figure class="testi">
+          <div class="who">
+            <div class="avatar">A</div>
+            <figcaption><strong>Aria</strong> • Better sleep</figcaption>
+          </div>
+          <div class="stars">★★★★★</div>
+          <blockquote style="margin:0;color:#415070;">
+            Nutrition + recovery guidance made a huge difference in my energy.
+          </blockquote>
+        </figure>
+        <figure class="testi">
+          <div class="who">
+            <div class="avatar">R</div>
+            <figcaption><strong>Rahul</strong> • Stronger & fitter</figcaption>
+          </div>
+          <div class="stars">★★★★★</div>
+          <blockquote style="margin:0;color:#415070;">
+            The plans adapt as I progress — it feels like a coach in my pocket.
+          </blockquote>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer role="contentinfo">
+      <div class="foot-inner">
+        <div>&nbsp;&nbsp;&nbsp;© <span id="year"></span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FitnLive. All rights reserved.</div>
+    
+    </footer>
+  </div>
+
+  <!-- No inline scripts (CSP-friendly) -->
+  <script src="/assets/js/home.js" defer></script>
+</body>
+</html>
