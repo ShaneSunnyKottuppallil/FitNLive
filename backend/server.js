@@ -52,8 +52,6 @@ const helmetOptions = {
 
 app.use(helmet(helmetOptions));
 
-// trust the immediate proxy (nginx) — adjust if you have multiple hops
-app.set('trust proxy', 1);
 
 connectMongoDB();
 
