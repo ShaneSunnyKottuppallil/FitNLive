@@ -2,6 +2,7 @@
 /* robust session middleware using connect-mongo; helmet configured once (no HSTS / no upgrade-insecure-requests) */
 
 const path = require('path');
+const fs = require('fs');
 const dotenv = require('dotenv');
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
@@ -23,6 +24,10 @@ const mongoose = require('mongoose');
 const sql = require('./config/dbSQL');
 
 const app = express();
+
+// If you are behind nginx or a proxy, set this appropriately.
+// Use '1' to trust the first proxy (common when nginx is in front).
+app.set('trust proxy', 1);
 
 // Helmet configured to NOT send HSTS and to avoid upgrade-insecure-requests
 const helmetOptions = {
@@ -52,16 +57,32 @@ const helmetOptions = {
 
 app.use(helmet(helmetOptions));
 
-
 connectMongoDB();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Helper: compute cookie secure flag explicitly
+// Use USE_HTTPS=true in your environment when you actually run HTTPS in production.
+// This avoids secure:true when you are serving over HTTP (so cookies are sent).
+const cookieSecure = (() => {
+  try {
+    return (process.env.USE_HTTPS === 'true') && (process.env.NODE_ENV === 'production');
+  } catch (e) {
+    return false;
+  }
+})();
+
+const defaultSessionCookie = {
+  httpOnly: true,
+  secure: cookieSecure,
+  sameSite: 'lax',
+  maxAge: 24 * 60 * 60 * 1000 // 1 day
+};
+
 // -- Robust session middleware creation (async)
 async function createSessionMiddleware() {
-  // debug - log presence of important envs (will show in pm2 logs)
-  console.log('ENV DEBUG -> MONGO_URI:', !!process.env.MONGO_URI, 'SESSION_SECRET:', !!process.env.SESSION_SECRET);
+  console.log('ENV DEBUG -> MONGO_URI:', !!process.env.MONGO_URI, 'SESSION_SECRET:', !!process.env.SESSION_SECRET, 'USE_HTTPS:', process.env.USE_HTTPS, 'NODE_ENV:', process.env.NODE_ENV);
 
   // If MONGO_URI is provided, use it directly (fast path)
   if (process.env.MONGO_URI) {
@@ -73,12 +94,7 @@ async function createSessionMiddleware() {
         mongoUrl: process.env.MONGO_URI,
         collectionName: 'sessions'
       }),
-      cookie: {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000
-      }
+      cookie: defaultSessionCookie
     });
   }
 
@@ -100,6 +116,7 @@ async function createSessionMiddleware() {
 
   const clientPromise = Promise.resolve(client);
 
+  // Always include the same cookie options so behaviour is consistent
   return session({
     secret: process.env.SESSION_SECRET || 'change_me',
     resave: false,
@@ -108,13 +125,21 @@ async function createSessionMiddleware() {
       clientPromise,
       collectionName: 'sessions'
     }),
-    
+    cookie: defaultSessionCookie
   });
 }
 
+// Safe sendFile helper — avoids accidental ENOENT path problems and logs helpful errors.
+function sendView(res, ...pathSegments) {
+  const p = path.resolve(__dirname, '..', ...pathSegments);
+  if (!fs.existsSync(p)) {
+    console.error('[FILE-MISSING] view not found at', p);
+    return res.status(500).send('Server error (missing view)');
+  }
+  return res.sendFile(p);
+}
+
 // Mount session middleware then initialize passport and mount routes.
-// We do this inside the .then() to ensure session middleware is present
-// before passport.session() (passport depends on express-session).
 createSessionMiddleware()
   .then((sessionMw) => {
     app.use(sessionMw);
@@ -130,7 +155,8 @@ createSessionMiddleware()
         MONGO_URI: !!process.env.MONGO_URI,
         SESSION_SECRET: !!process.env.SESSION_SECRET,
         MYSQL_PASSWORD: !!process.env.MYSQL_PASSWORD || !!process.env.MYSQL_PASS,
-        NODE_ENV: process.env.NODE_ENV || null
+        NODE_ENV: process.env.NODE_ENV || null,
+        USE_HTTPS: process.env.USE_HTTPS || null
       });
     });
 
@@ -149,21 +175,21 @@ createSessionMiddleware()
     app.use('/api/profile', profileRoutes);
     app.use('/api/user', userRoutes);
 
-    // ---- Page routes
+    // ---- Page routes (use safe helper)
     app.get('/signup', (_req, res) =>
-      res.sendFile(path.join(__dirname, '../frontend/views/signup.html'))
+      sendView(res, 'frontend', 'views', 'signup.html')
     );
     app.get('/login', (_req, res) =>
-      res.sendFile(path.join(__dirname, '../frontend/views/login.html'))
+      sendView(res, 'frontend', 'views', 'login.html')
     );
     app.get('/profile', ensureAuth, (req, res) =>
-      res.sendFile(path.join(__dirname, '../frontend/views/profile.html'))
+      sendView(res, 'frontend', 'views', 'profile.html')
     );
     app.get('/chat', ensureAuth, (req, res) =>
-      res.sendFile(path.join(__dirname, '../frontend/views/chat.html'))
+      sendView(res, 'frontend', 'views', 'chat.html')
     );
     app.get('/', (_req, res) =>
-      res.sendFile(path.join(__dirname, '../frontend/views/index.html'))
+      sendView(res, 'frontend', 'views', 'index.html')
     );
 
     // ---- Temporary health endpoints (remove in production)
