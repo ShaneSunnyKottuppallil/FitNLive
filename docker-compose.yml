@@ -1,0 +1,77 @@
+services:
+
+  nginx:
+    build: ./nginx
+    container_name: fitnlive-nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    networks: 
+      - fitnlive-net
+
+  app:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: fitnlive-app
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+
+    volumes:
+      - ./backend:/usr/src/app
+      - ./frontend:/usr/src/frontend
+      - /usr/src/app/node_modules   # prevents host mount from deleting node_modules
+
+    command: sh -c "npm install && node server.js"
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+
+    networks:
+      - fitnlive-net
+
+  mongo:
+    image: mongo:7
+    container_name: fitnlive-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - fitnlive-net
+
+  mysql:
+    image: mysql:8
+    container_name: fitnlive-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: Sven@2002
+      MYSQL_DATABASE: health_app
+    ports:
+      - "3306:3306"
+
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+
+    networks:
+      - fitnlive-net
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mongo-data:
+  mysql-data:
+
+networks:
+  fitnlive-net:
+    driver: bridge
