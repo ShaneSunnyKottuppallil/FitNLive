@@ -7,8 +7,9 @@ services:
       - "80:80"
     depends_on:
       - app
-    networks: 
+    networks:
       - fitnlive-net
+
 
   app:
     build:
@@ -17,13 +18,19 @@ services:
     container_name: fitnlive-app
     ports:
       - "5000:5000"
+
     env_file:
       - .env
+
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MONGO_URI: mongodb://mongo:27017
 
     volumes:
       - ./backend:/usr/src/app
       - ./frontend:/usr/src/frontend
-      - /usr/src/app/node_modules   # prevents host mount from deleting node_modules
+      - /usr/src/app/node_modules
 
     command: sh -c "npm install && node server.js"
 
@@ -36,6 +43,7 @@ services:
     networks:
       - fitnlive-net
 
+
   mongo:
     image: mongo:7
     container_name: fitnlive-mongo
@@ -45,6 +53,7 @@ services:
       - mongo-data:/data/db
     networks:
       - fitnlive-net
+
 
   mysql:
     image: mysql:8
@@ -63,10 +72,11 @@ services:
       - fitnlive-net
 
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pSven@2002"]
       interval: 10s
       timeout: 5s
       retries: 5
+
 
 volumes:
   mongo-data:

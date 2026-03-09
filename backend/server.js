@@ -1,10 +1,8 @@
-/* backend/server.js - patched */
-/* robust session middleware using connect-mongo; helmet configured once (no HSTS / no upgrade-insecure-requests) */
+/* backend/server.js - docker-safe */
 
 const path = require('path');
 const fs = require('fs');
-const dotenv = require('dotenv');
-dotenv.config({ path: path.join(__dirname, '../.env') });
+require('dotenv').config(); // Docker-safe .env loading
 
 const express = require('express');
 const session = require('express-session');
@@ -25,199 +23,181 @@ const sql = require('./config/dbSQL');
 
 const app = express();
 
-// If you are behind nginx or a proxy, set this appropriately.
-// Use '1' to trust the first proxy (common when nginx is in front).
 app.set('trust proxy', 1);
 
-// Helmet configured to NOT send HSTS and to avoid upgrade-insecure-requests
-const helmetOptions = {
-  // Turn off HSTS header from Helmet (we don't want Strict-Transport-Security)
-  hsts: false,
+/* ---------- SECURITY ---------- */
 
-  // Configure Content-Security-Policy manually and do NOT include
-  // the upgrade-insecure-requests directive which forces https.
-  contentSecurityPolicy: {
-    directives: {
-      "default-src": ["'self'"],
-      "base-uri": ["'self'"],
-      "font-src": ["'self'", "https:", "data:"],
-      "form-action": ["'self'"],
-      "frame-ancestors": ["'self'"],
-      "img-src": ["'self'", "data:"],
-      "object-src": ["'none'"],
-      "script-src": ["'self'"],
-      "script-src-attr": ["'none'"],
-      "style-src": ["'self'", "https:", "'unsafe-inline'"]
-      // NOTE: intentionally not adding "upgrade-insecure-requests"
+app.use(
+  helmet({
+    hsts: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", "data:"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        objectSrc: ["'none'"]
+      }
     }
-  },
+  })
+);
 
-  // keep other sensible defaults enabled
-};
-
-app.use(helmet(helmetOptions));
+/* ---------- DATABASE ---------- */
 
 connectMongoDB();
+
+/* ---------- EXPRESS ---------- */
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Helper: compute cookie secure flag explicitly
-// Use USE_HTTPS=true in your environment when you actually run HTTPS in production.
-// This avoids secure:true when you are serving over HTTP (so cookies are sent).
-const cookieSecure = (() => {
-  try {
-    return (process.env.USE_HTTPS === 'true') && (process.env.NODE_ENV === 'production');
-  } catch (e) {
-    return false;
-  }
-})();
+const cookieSecure =
+  process.env.USE_HTTPS === 'true' && process.env.NODE_ENV === 'production';
 
-const defaultSessionCookie = {
+const sessionCookie = {
   httpOnly: true,
   secure: cookieSecure,
   sameSite: 'lax',
-  maxAge: 24 * 60 * 60 * 1000 // 1 day
+  maxAge: 24 * 60 * 60 * 1000
 };
 
-// -- Robust session middleware creation (async)
+/* ---------- SESSION ---------- */
+
 async function createSessionMiddleware() {
-  console.log('ENV DEBUG -> MONGO_URI:', !!process.env.MONGO_URI, 'SESSION_SECRET:', !!process.env.SESSION_SECRET, 'USE_HTTPS:', process.env.USE_HTTPS, 'NODE_ENV:', process.env.NODE_ENV);
 
-  // If MONGO_URI is provided, use it directly (fast path)
-  if (process.env.MONGO_URI) {
-    return session({
-      secret: process.env.SESSION_SECRET || 'change_me',
-      resave: false,
-      saveUninitialized: false,
-      store: MongoStore.create({
-        mongoUrl: process.env.MONGO_URI,
-        collectionName: 'sessions'
-      }),
-      cookie: defaultSessionCookie
-    });
-  }
+  console.log(
+    'ENV DEBUG ->',
+    'MONGO_URI:', !!process.env.MONGO_URI,
+    'MYSQL_HOST:', process.env.MYSQL_HOST,
+    'SESSION_SECRET:', !!process.env.SESSION_SECRET
+  );
 
-  // Otherwise wait for mongoose to connect then use the native client
-  if (mongoose.connection.readyState !== 1) {
-    console.log('Waiting for mongoose connection to be ready before creating session store...');
-    await mongoose.connection.asPromise(); // resolves when connected
-  }
-
-  // try to obtain the native MongoClient from mongoose
-  const client = (typeof mongoose.connection.getClient === 'function')
-    ? mongoose.connection.getClient()
-    : (mongoose.connections && mongoose.connections[0] && mongoose.connections[0].client);
-
-  if (!client) {
-    console.error('No Mongo client available for session store. Please set MONGO_URI or ensure mongoose.connect succeeded.');
-    throw new Error('No Mongo client available for session store');
-  }
-
-  const clientPromise = Promise.resolve(client);
-
-  // Always include the same cookie options so behaviour is consistent
   return session({
-    secret: process.env.SESSION_SECRET || 'change_me',
+    secret: process.env.SESSION_SECRET || 'dev_secret',
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
-      clientPromise,
+      mongoUrl: process.env.MONGO_URI,
       collectionName: 'sessions'
     }),
-    cookie: defaultSessionCookie
+    cookie: sessionCookie
   });
 }
 
-// Safe sendFile helper — avoids accidental ENOENT path problems and logs helpful errors.
-function sendView(res, ...pathSegments) {
-  const p = path.resolve(__dirname, '..', ...pathSegments);
-  if (!fs.existsSync(p)) {
-    console.error('[FILE-MISSING] view not found at', p);
-    return res.status(500).send('Server error (missing view)');
+/* ---------- VIEW HELPER ---------- */
+
+function sendView(res, ...segments) {
+  const file = path.resolve(__dirname, '..', ...segments);
+
+  if (!fs.existsSync(file)) {
+    console.error("Missing view:", file);
+    return res.status(500).send("View missing");
   }
-  return res.sendFile(p);
+
+  res.sendFile(file);
 }
 
-// Mount session middleware then initialize passport and mount routes.
+/* ---------- START APP ---------- */
+
 createSessionMiddleware()
-  .then((sessionMw) => {
+  .then(sessionMw => {
+
     app.use(sessionMw);
 
-    // Passport (must be after session)
     require('./config/passport')(passport);
+
     app.use(passport.initialize());
     app.use(passport.session());
 
-    // optional debug route to confirm envs (remove after debugging)
-    app.get('/debug/env', (_req, res) => {
-      res.json({
-        MONGO_URI: !!process.env.MONGO_URI,
-        SESSION_SECRET: !!process.env.SESSION_SECRET,
-        MYSQL_PASSWORD: !!process.env.MYSQL_PASSWORD || !!process.env.MYSQL_PASS,
-        NODE_ENV: process.env.NODE_ENV || null,
-        USE_HTTPS: process.env.USE_HTTPS || null
-      });
-    });
+    /* ---------- STATIC ---------- */
 
-    // static assets
     app.use(express.static(path.join(__dirname, '../frontend')));
 
-    // rate-limited API path
-    app.use('/api/chat', rateLimit({
-      windowMs: 60 * 1000, // 1 minute
-      max: 30
-    }));
+    /* ---------- RATE LIMIT ---------- */
 
-    // ---- Routes
+    app.use(
+      '/api/chat',
+      rateLimit({
+        windowMs: 60 * 1000,
+        max: 30
+      })
+    );
+
+    /* ---------- ROUTES ---------- */
+
     app.use('/auth', authRoutes);
     app.use('/api/chat', chatRoutes);
     app.use('/api/profile', profileRoutes);
     app.use('/api/user', userRoutes);
 
-    // ---- Page routes (use safe helper)
-    app.get('/signup', (_req, res) =>
+    app.get('/signup', (req, res) =>
       sendView(res, 'frontend', 'views', 'signup.html')
     );
-    app.get('/login', (_req, res) =>
+
+    app.get('/login', (req, res) =>
       sendView(res, 'frontend', 'views', 'login.html')
     );
+
     app.get('/profile', ensureAuth, (req, res) =>
       sendView(res, 'frontend', 'views', 'profile.html')
     );
+
     app.get('/chat', ensureAuth, (req, res) =>
       sendView(res, 'frontend', 'views', 'chat.html')
     );
-    app.get('/', (_req, res) =>
+
+    app.get('/', (req, res) =>
       sendView(res, 'frontend', 'views', 'index.html')
     );
 
-    // ---- Temporary health endpoints (remove in production)
-    app.get('/health/mysql', (_req, res) => {
-      sql.query('SELECT 1 AS ok', (e, rows) =>
-        res.status(e ? 500 : 200).json(e ? { e: e.code } : { ok: rows[0].ok })
-      );
-    });
-    app.get('/health/mongo', (_req, res) => {
-      res.json({ state: mongoose.connection.readyState }); // 1 = connected
-    });
-    app.get('/health/session', (req, res) => {
-      res.json({ hasSession: !!req.session, isAuthed: !!req.user, user: req.user || null });
+    /* ---------- HEALTH CHECK ---------- */
+
+    app.get('/health/mysql', (req, res) => {
+
+      sql.query('SELECT 1', (err, rows) => {
+
+        if (err) return res.status(500).json({ error: err.code });
+
+        res.json({ ok: rows[0]['1'] });
+      });
+
     });
 
-    // ---- Fallbacks & error handler
-    app.use((req, res) => res.status(404).json({ error: 'Not found' }));
-    app.use((err, _req, res, _next) => {
+    app.get('/health/mongo', (req, res) => {
+
+      res.json({
+        state: mongoose.connection.readyState
+      });
+
+    });
+
+    /* ---------- FALLBACK ---------- */
+
+    app.use((req, res) =>
+      res.status(404).json({ error: 'Not found' })
+    );
+
+    app.use((err, req, res, next) => {
+
       console.error(err);
+
       res.status(500).json({ error: 'Server error' });
+
     });
 
-    // ---- Start listening
+    /* ---------- START SERVER ---------- */
+
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+
   })
   .catch(err => {
-    console.error('Failed to create session middleware:', err);
-    // fail fast rather than running without sessions
+
+    console.error("Session init failed:", err);
+
     process.exit(1);
+
   });
