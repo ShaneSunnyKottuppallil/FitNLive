@@ -2,29 +2,31 @@
 const Profile = require("../models/Profile");
 const Chat = require("../models/Chat");
 
-/* ========= System prompt ========= */
-const SYSTEM_PROMPT = `
-You are a professional physical health and fitness assistant.
-Your role is to give safe, medically cautious, and personalized guidance 
-related to:
-- Physical exercise
-- Weight management
-- Calorie tracking
-- Healthy diet planning
-- Hydration and nutrition tips
-- Sleep and recovery advice
-- Progress tracking
+const { AGENT_PROMPTS } = require("./agents/prompts")
 
-Rules:
-- Should only answer queries related to health and monitoring them.
-- If needed ask users for details to calculate diet but don't give inappropriate data.
-- Never give unsafe or extreme recommendations.
-- No one line gap after each paragraph.
-- Responses should include points.
-- If asked for medical diagnosis, politely advise seeing a doctor.
-- Responses should contain at least 20 words.
-- If giving diet/exercise plans, ensure they are beginner-friendly unless user specifies otherwise.
-`;
+// /* ========= System prompt ========= */
+// const SYSTEM_PROMPT = `
+// You are a professional physical health and fitness assistant.
+// Your role is to give safe, medically cautious, and personalized guidance 
+// related to:
+// - Physical exercise
+// - Weight management
+// - Calorie tracking
+// - Healthy diet planning
+// - Hydration and nutrition tips
+// - Sleep and recovery advice
+// - Progress tracking
+
+// Rules:
+// - Should only answer queries related to health and monitoring them.
+// - If needed ask users for details to calculate diet but don't give inappropriate data.
+// - Never give unsafe or extreme recommendations.
+// - No one line gap after each paragraph.
+// - Responses should include points.
+// - If asked for medical diagnosis, politely advise seeing a doctor.
+// - Responses should contain at least 20 words.
+// - If giving diet/exercise plans, ensure they are beginner-friendly unless user specifies otherwise.
+// `;
 
 /**
  * Turn stored chat docs into Gemini chat history (oldest -> newest)
@@ -53,14 +55,16 @@ function buildGeminiHistory({ docs = [], profileContext = "" }) {
  * @param {string} userPrompt
  * @param {string} sessionId
  */
-async function getGeminiResponse(userId, userPrompt, sessionId) {
+async function getGeminiResponse(userId, userPrompt, sessionId, agentType = "general") {
   try {
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
+    const systemInstruction = AGENT_PROMPTS[agentType] || AGENT_PROMPTS.general;
+
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      systemInstruction: SYSTEM_PROMPT, // supported on recent SDKs
+      systemInstruction: systemInstruction, // supported on recent SDKs
     });
 
     // Pull profile

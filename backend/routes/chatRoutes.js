@@ -19,15 +19,15 @@ router.post("/session", ensureAuth, async (_req, res) => {
 /** Send a message */
 router.post("/", ensureAuth, async (req, res) => {
   try {
-    let { message, sessionId } = req.body;
+    let { message, sessionId, agentType } = req.body;
     if (!message) return res.status(400).json({ error: "Message is required" });
     if (!sessionId) sessionId = uuidv4();
 
-    const reply = await getGeminiResponse(req.user.id, message);
+    const reply = await getGeminiResponse(req.user.id, message, sessionId, agentType);
 
     const chat = await Chat.create({
       userId: req.user.id,   // 👈 MySQL user id
-      sessionId,
+      sessionId: sessionId || uuidv4(),
       message,
       reply,
     });

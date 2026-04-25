@@ -8,6 +8,11 @@ const profileSchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  stravaTokens: {
+    accessToken: String,
+    refreshToken: String,
+    expiresAt: Number
+  },
   age: { type: Number, min: 0 },
   gender: { type: String, enum: ["Male", "Female", "Other"] },
   height: { type: Number, min: 0 }, // cm

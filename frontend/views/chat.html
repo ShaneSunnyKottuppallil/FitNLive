@@ -157,14 +157,101 @@ input[type="text"] {
   font-size: 1rem; outline-offset: 2px; transition: border-color .3s ease; font-weight: 500;
 }
 input[type="text"]:focus { border-color: #4a90e2; box-shadow: 0 0 8px #4a90e2aa; }
-button[type="submit"] {
+ /*button[type="submit"] {
   background-color: #4a90e2; color: #fff; border: none; border-radius: 24px;
   padding: 10px 16px; font-size: .95rem; font-weight: 700; cursor: pointer;
   box-shadow: 0 5px 14px rgba(74,144,226,.5); transition: background-color .25s ease, box-shadow .25s ease;
   display: flex; align-items: center; justify-content: center; gap: 6px; user-select: none;
 }
 button[type="submit"]:hover { background-color: #357ABD; box-shadow: 0 8px 22px rgba(53,123,189,.7); }
-button[type="submit"] svg { width: 18px; height: 18px; fill: white; }
+button[type="submit"] svg { width: 18px; height: 18px; fill: white; } */
+
+/* Container to position the custom arrow */
+.agent-selector-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  max-width: 250px;
+  margin-bottom: 15px;
+}
+
+.agent-dropdown {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  padding: 10px 40px 10px 15px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #333;
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+/* Hover State */
+.agent-dropdown:hover {
+  border-color: #357ABD;
+  background-color: #f8fbff;
+}
+
+/* Focus State - Matches your button shadow */
+.agent-dropdown:focus {
+  border-color: #357ABD;
+  box-shadow: 0 0 0 3px rgba(53, 123, 189, 0.2), 0 4px 12px rgba(53, 123, 189, 0.1);
+}
+
+/* Custom Arrow Styling */
+.dropdown-arrow {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-arrow svg {
+  width: 20px;
+  height: 20px;
+  fill: #357ABD; /* Using your signature blue */
+}
+
+/* Option Styling (Limited by OS/Browser) */
+.agent-dropdown option {
+  padding: 10px;
+  background: white;
+  color: #333;
+}
+
+/* Style for the Submit Button to match the dropdown */
+button[type="submit"] {
+  background-color: #357ABD;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+button[type="submit"]:hover { 
+  background-color: #2d6699; /* Slightly darker blue */
+  box-shadow: 0 8px 22px rgba(53, 123, 189, 0.7); 
+}
+
+button[type="submit"] svg { 
+  width: 18px; 
+  height: 18px; 
+  fill: white; 
+}
 
 /* Loading spinner */
 .loading-spinner {
@@ -212,6 +299,24 @@ button[type="submit"] svg { width: 18px; height: 18px; fill: white; }
 
       <div id="chat-container" aria-live="polite" aria-label="Chat messages"></div>
 
+              <!-- <select id="agent-selector" class="agent-dropdown">
+  <option value="general">General Assistant</option>
+  <option value="data_analyst">Data Analyst (Strava)</option>
+  <option value="training_coach">Training Coach</option>
+  <option value="nutritionist">Nutritionist</option>
+</select> -->
+
+      <div class="agent-selector-container">
+  <select id="agent-selector" class="agent-dropdown">
+    <option value="general">General Assistant</option>
+    <option value="data_analyst">Data Analyst (Strava)</option>
+    <option value="training_coach">Training Coach</option>
+    <option value="nutritionist">Nutritionist</option>
+  </select>
+  <span class="dropdown-arrow">
+    <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+  </span>
+</div>
       <form id="chat-form" aria-label="Send a message">
         <input
           type="text"
@@ -227,6 +332,7 @@ button[type="submit"] svg { width: 18px; height: 18px; fill: white; }
             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
           </svg>
         </button>
+
       </form>
     </section>
   </main>

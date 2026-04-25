@@ -7,12 +7,14 @@ const chatForm      = document.getElementById('chat-form');
 const messageInput  = document.getElementById('message-input');
 const newSessionBtn = document.getElementById('new-session-btn');
 const sessionList   = document.getElementById('session-list');
+const agentSelector = document.getElementById('agent-selector');
 
 // Profile dropdown elements
 const avatarBtn        = document.getElementById('avatarBtn');
 const profileMenu      = document.getElementById('profileMenu');
 const logoutBtn        = document.getElementById('logoutBtn');
 const editPasswordBtn  = document.getElementById('editPasswordBtn');
+
 
 /* ---------- Markdown config (safe, chat-friendly) ---------- */
 (function configureMarkdown() {
@@ -152,13 +154,60 @@ if (newSessionBtn) {
   });
 }
 
+/* ---------- Agent Selection & Persistence ---------- */
+
+// 1. Restore agent selection from localStorage on load
+const savedAgent = localStorage.getItem('selectedAgent');
+if (savedAgent && agentSelector) {
+  agentSelector.value = savedAgent;
+}
+
+if (agentSelector) {
+  agentSelector.addEventListener('change', async () => {
+    const selectedAgent = agentSelector.value;
+    
+    // Save current selection to memory
+    localStorage.setItem('selectedAgent', selectedAgent);
+
+    if (selectedAgent === 'data_analyst') {
+      try {
+        const statusRes = await fetch('/api/strava/status');
+        const status = await statusRes.json();
+        
+        if (!status.connected) {
+          if (confirm("Data Analyst needs Strava access. Connect now?")) {
+            const authRes = await fetch('/api/strava/auth-url');
+            const data = await authRes.json();
+            
+            if (data && data.url) {
+              window.location.href = data.url;
+            } else {
+              console.error("Failed to get Strava Auth URL", data);
+              alert("Could not connect to Strava. Please check server logs.");
+              agentSelector.value = 'general';
+              localStorage.setItem('selectedAgent', 'general');
+            }
+          } else {
+            agentSelector.value = 'general';
+            localStorage.setItem('selectedAgent', 'general');
+          }
+        }
+      } catch (err) {
+        console.error("Strava status check failed", err);
+      }
+    }
+  });
+}
+
 /* ---------- Send message ---------- */
 if (chatForm) {
   chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const message = messageInput.value.trim();
+    
+    let message = messageInput.value.trim();
     if (!message) return;
 
+    const selectedAgent = agentSelector.value;
     messageInput.value = '';
     messageInput.disabled = true;
 
@@ -171,6 +220,7 @@ if (chatForm) {
       fetchSessions();
     }
 
+    // UI Updates
     if (!chatDateBar.textContent) setDateBar(Date.now());
 
     const interactionDiv = document.createElement('div');
@@ -181,38 +231,47 @@ if (chatForm) {
 
     const userMsgElem = createMessageElement(message, 'user');
     interactionDiv.appendChild(userMsgElem);
-
     const loadingElem = createLoadingSpinner();
     interactionDiv.appendChild(loadingElem);
-
     chatContainer.appendChild(interactionDiv);
     chatContainer.scrollTop = chatContainer.scrollHeight;
+
+    // Fetch Strava data context if Data Analyst is selected
+    if (selectedAgent === 'data_analyst') {
+      try {
+        const activityData = await fetch('/api/strava/latest-activity').then(r => r.json());
+        if (activityData && !activityData.error) {
+          message += `\n\n[CONTEXT: Latest Strava Activity: ${JSON.stringify(activityData)}]`;
+        }
+      } catch (err) {
+        console.warn("Could not fetch Strava activity, proceeding without context.");
+      }
+    }
 
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, sessionId: currentSessionId }),
+        body: JSON.stringify({ 
+          message, 
+          sessionId: currentSessionId, 
+          agentType: selectedAgent 
+        }),
       });
 
       const data = await response.json();
-
-      const botReplyText = data.reply
-        ? data.reply
-        : (data.error ? `Error: ${data.error}` : 'No response from assistant.');
+      const botReplyText = data.reply || (data.error ? `Error: ${data.error}` : 'No response from assistant.');
 
       const botMsgElem = createMessageElement(botReplyText, 'bot');
       interactionDiv.replaceChild(botMsgElem, loadingElem);
-
-      chatContainer.scrollTop = chatContainer.scrollHeight;
-      fetchSessions();
     } catch (err) {
       const errorElem = createMessageElement('Failed to fetch response.', 'bot');
       interactionDiv.replaceChild(errorElem, loadingElem);
     } finally {
       messageInput.disabled = false;
       messageInput.focus();
+      chatContainer.scrollTop = chatContainer.scrollHeight;
     }
   });
 }
@@ -249,6 +308,13 @@ if (logoutBtn) {
     await ensureSession();
     await fetchSessions();
     if (!chatDateBar.textContent) setDateBar(Date.now());
+
+    // Clean up Strava URL parameters if they exist
+    if (window.location.search.includes('strava=')) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+    
   } catch (e) {
     console.error(e);
   }
