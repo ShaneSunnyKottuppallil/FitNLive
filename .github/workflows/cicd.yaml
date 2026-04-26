@@ -18,12 +18,10 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
         env:
-          HOST: ${{ secrets.EC2_HOST }}
           GH_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
           ENV_FILE: ${{ secrets.APP_ENV_FILE }}
-
         with:
-          host: ${{ env.HOST }}        # ✅ FIXED
+          host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key_path: key.pem
           port: 22
@@ -33,6 +31,7 @@ jobs:
 
             echo "🚀 Starting deployment..."
 
+            # Install Docker if missing
             if ! command -v docker >/dev/null 2>&1; then
               sudo apt update
               sudo apt install -y docker.io
@@ -41,21 +40,30 @@ jobs:
               sudo usermod -aG docker ubuntu
             fi
 
+            # Clone repo if not exists
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
 
             cd FitNLive
 
+            # Pull latest
             git fetch --all
             git reset --hard origin/main
 
-            echo "${ENV_FILE}" > .env
+            # Inject ENV
+            echo "$ENV_FILE" > .env
 
+            # Stop old containers
             docker compose -f docker-compose.prod.yml down || true
+
+            # Build
             docker compose -f docker-compose.prod.yml build
+
+            # Start
             docker compose -f docker-compose.prod.yml up -d
 
+            # Debug
             docker ps
 
             echo "✅ Deployment complete"
