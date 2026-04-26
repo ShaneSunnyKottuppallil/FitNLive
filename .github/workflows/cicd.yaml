@@ -23,9 +23,7 @@ jobs:
 
             echo "🚀 Starting deployment..."
 
-            # Install Docker if missing
             if ! command -v docker >/dev/null 2>&1; then
-              echo "📦 Installing Docker..."
               sudo apt update
               sudo apt install -y docker.io
               sudo systemctl start docker
@@ -33,33 +31,23 @@ jobs:
               sudo usermod -aG docker ubuntu
             fi
 
-            # Clone repo
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${{ secrets.APP_GITHUB_TOKEN }}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
 
             cd FitNLive
 
-            # Pull latest
             git fetch --all
             git reset --hard origin/main
 
-            # Inject ENV
             echo "${{ secrets.APP_ENV_FILE }}" > .env
 
-            # Stop old containers
             docker compose -f docker-compose.prod.yml down || docker-compose -f docker-compose.prod.yml down || true
 
-            # Build
-            echo "🐳 Building..."
             docker compose -f docker-compose.prod.yml build || docker-compose -f docker-compose.prod.yml build
 
-            # Start
-            echo "🚀 Starting..."
             docker compose -f docker-compose.prod.yml up -d || docker-compose -f docker-compose.prod.yml up -d
 
-            # Debug
-            echo "📦 Containers:"
             docker ps
 
             echo "✅ Deployment complete"
