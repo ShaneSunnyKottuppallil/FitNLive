@@ -1,4 +1,4 @@
-name: Deploy App
+name: Deploy to EC2
 
 on:
   push:
@@ -18,17 +18,40 @@ jobs:
           script: |
             echo "🚀 Starting deployment..."
 
+            # Ensure Docker is installed
+            if ! command -v docker &> /dev/null
+            then
+              echo "Installing Docker..."
+              sudo apt update
+              sudo apt install -y docker.io docker-compose-plugin
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker ubuntu
+            fi
+
+            # Use docker without sudo (fallback safe)
+            DOCKER_CMD="docker"
+            if ! groups ubuntu | grep -q docker; then
+              DOCKER_CMD="sudo docker"
+            fi
+
+            # Clone repo if not exists
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${{ secrets.APP_GITHUB_TOKEN }}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
 
             cd FitNLive
 
+            # Pull latest code
             git pull https://x-access-token:${{ secrets.APP_GITHUB_TOKEN }}@github.com/ShaneSunnyKottuppallil/FitNLive.git main
 
+            # Inject env file
             echo "${{ secrets.APP_ENV_FILE }}" > .env
 
-            docker-compose -f docker-compose.prod.yml down || true
-            docker-compose -f docker-compose.prod.yml up -d --build
+            # Stop old containers
+            $DOCKER_CMD compose -f docker-compose.prod.yml down || true
+
+            # Start new containers
+            $DOCKER_CMD compose -f docker-compose.prod.yml up -d --build
 
             echo "✅ Deployment complete"
