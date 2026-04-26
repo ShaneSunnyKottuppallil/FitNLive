@@ -33,7 +33,6 @@ jobs:
         run: |
           terraform init
 
-      # ✅ BULLETPROOF APPLY (no YAML parsing issues)
       - name: Terraform Apply
         run: |
           echo "Running Terraform Apply..."
@@ -48,10 +47,10 @@ jobs:
         run: |
           echo "ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
 
+      # ✅ FIXED SECRET UPDATE STEP
       - name: Update EC2_HOST Secret
         uses: gliech/create-github-secret-action@v1
         with:
           name: EC2_HOST
           value: ${{ steps.tf_output.outputs.ip }}
-          repository: ${{ github.repository }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          pa_token: ${{ secrets.APP_GITHUB_TOKEN }}
