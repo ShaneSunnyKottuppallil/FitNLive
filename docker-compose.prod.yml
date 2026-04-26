@@ -1,91 +1,52 @@
-name: Deploy to EC2
+version: '3.8'
 
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+services:
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    restart: always
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      - mongodb     # ✅ no health blocking
+      - mysql
+    restart: always
 
-    steps:
-      - name: 🚀 Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.6
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_KEY }}
-          port: 22
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+    restart: always
 
-          timeout: 300s
-          command_timeout: 300s
+  mongodb:
+    image: mongo:6
+    volumes:
+      - mongo_data:/data/db
+    restart: always
+    # ✅ removed healthcheck (optional for now)
 
-          script: |
-            set -e
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    restart: always
+    # ✅ removed fragile healthcheck
 
-            echo "🚀 Starting deployment..."
-
-            # -------------------------------
-            # Install Docker (only if needed)
-            # -------------------------------
-            if ! command -v docker &> /dev/null; then
-              echo "📦 Installing Docker..."
-              sudo apt update
-              sudo apt install -y docker.io
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker ubuntu
-            fi
-
-            # -------------------------------
-            # Detect docker compose version
-            # -------------------------------
-            if docker compose version &> /dev/null; then
-              DOCKER_CMD="docker compose"
-            else
-              DOCKER_CMD="docker-compose"
-            fi
-
-            # -------------------------------
-            # Clone repo (private safe)
-            # -------------------------------
-            if [ ! -d "FitNLive" ]; then
-              git clone https://x-access-token:${{ secrets.APP_GITHUB_TOKEN }}@github.com/ShaneSunnyKottuppallil/FitNLive.git
-            fi
-
-            cd FitNLive
-
-            # -------------------------------
-            # Pull latest code
-            # -------------------------------
-            git fetch --all
-            git reset --hard origin/main
-
-            # -------------------------------
-            # Inject ENV
-            # -------------------------------
-            echo "${{ secrets.APP_ENV_FILE }}" > .env
-
-            # -------------------------------
-            # Stop old containers
-            # -------------------------------
-            $DOCKER_CMD -f docker-compose.prod.yml down || true
-
-            # -------------------------------
-            # Build & Start (separated)
-            # -------------------------------
-            echo "🐳 Building containers..."
-            $DOCKER_CMD -f docker-compose.prod.yml build
-
-            echo "🚀 Starting containers..."
-            $DOCKER_CMD -f docker-compose.prod.yml up -d
-
-            # -------------------------------
-            # Debug visibility
-            # -------------------------------
-            echo "📦 Running containers:"
-            docker ps
-
-            echo "✅ Deployment complete"
+volumes:
+  mongo_data:
+  mysql_data:

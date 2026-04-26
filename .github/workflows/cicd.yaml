@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
+      - name: 🚀 Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
         env:
           GH_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
@@ -20,6 +21,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_KEY }}
           port: 22
+          timeout: 300s
+          command_timeout: 300s
 
           script: |
             set -e
@@ -27,7 +30,7 @@ jobs:
             echo "🚀 Starting deployment..."
 
             # -------------------------------
-            # Install Docker (only if needed)
+            # Install Docker (if missing)
             # -------------------------------
             if ! command -v docker >/dev/null 2>&1; then
               echo "📦 Installing Docker..."
@@ -41,7 +44,16 @@ jobs:
             sudo systemctl start docker
 
             # -------------------------------
-            # Clone repo if not exists
+            # Detect docker compose
+            # -------------------------------
+            if docker compose version >/dev/null 2>&1; then
+              COMPOSE="docker compose"
+            else
+              COMPOSE="docker-compose"
+            fi
+
+            # -------------------------------
+            # Clone repo (PRIVATE SAFE)
             # -------------------------------
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
@@ -50,14 +62,12 @@ jobs:
             cd FitNLive
 
             # -------------------------------
-            # HARD CLEAN (THIS FIXES YOUR ISSUE)
+            # HARD CLEAN (critical)
             # -------------------------------
-            echo "🧹 Cleaning old files..."
+            echo "🧹 Cleaning repo..."
             git fetch --all
             git reset --hard origin/main
-            git clean -fd   # 🔥 removes .github and any leftover junk
-
-            # Extra safety (explicit remove)
+            git clean -fd
             rm -rf .github || true
 
             # -------------------------------
@@ -68,22 +78,22 @@ jobs:
             # -------------------------------
             # Stop old containers
             # -------------------------------
-            docker compose -f docker-compose.prod.yml down || true
+            $COMPOSE -f docker-compose.prod.yml down || true
 
             # -------------------------------
-            # Build containers
+            # Build
             # -------------------------------
             echo "🐳 Building..."
-            docker compose -f docker-compose.prod.yml build
+            $COMPOSE -f docker-compose.prod.yml build
 
             # -------------------------------
-            # Start containers
+            # Start
             # -------------------------------
             echo "🚀 Starting..."
-            docker compose -f docker-compose.prod.yml up -d
+            $COMPOSE -f docker-compose.prod.yml up -d
 
             # -------------------------------
-            # Debug info
+            # Debug
             # -------------------------------
             echo "📦 Running containers:"
             docker ps
