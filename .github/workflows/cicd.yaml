@@ -19,13 +19,13 @@ jobs:
             echo "🚀 Starting deployment..."
 
             if [ ! -d "FitInLive" ]; then
-              git clone https://github.com/ShaneSunnyKottuppallil/FitInLive.git
+              git clone https://x-access-token:${{ secrets.APP_GITHUB_TOKEN }}@github.com/ShaneSunnyKottuppallil/FitInLive.git
             fi
 
             cd FitInLive
-            git pull origin main
 
-            # ✅ SAFE ENV INJECTION (no heredoc issues)
+            git pull https://x-access-token:${{ secrets.APP_GITHUB_TOKEN }}@github.com/ShaneSunnyKottuppallil/FitInLive.git main
+
             echo "${{ secrets.APP_ENV_FILE }}" > .env
 
             docker-compose -f docker-compose.prod.yml down || true
