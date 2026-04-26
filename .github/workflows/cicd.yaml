@@ -10,12 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Create SSH Key
+        run: |
+          echo "${{ secrets.EC2_KEY }}" > key.pem
+          chmod 600 key.pem
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_KEY }}
+          key_path: key.pem   # ✅ FIXED
           port: 22
 
           script: |
@@ -42,11 +47,9 @@ jobs:
 
             echo "${{ secrets.APP_ENV_FILE }}" > .env
 
-            docker compose -f docker-compose.prod.yml down || docker-compose -f docker-compose.prod.yml down || true
-
-            docker compose -f docker-compose.prod.yml build || docker-compose -f docker-compose.prod.yml build
-
-            docker compose -f docker-compose.prod.yml up -d || docker-compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml down || true
+            docker compose -f docker-compose.prod.yml build
+            docker compose -f docker-compose.prod.yml up -d
 
             docker ps
 
