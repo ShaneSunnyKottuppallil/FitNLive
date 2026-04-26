@@ -23,10 +23,8 @@ jobs:
 
             echo "🚀 Starting deployment..."
 
-            # -------------------------------
-            # Install Docker (lightweight)
-            # -------------------------------
-            if ! command -v docker &> /dev/null; then
+            # Install Docker if missing
+            if ! command -v docker >/dev/null 2>&1; then
               echo "📦 Installing Docker..."
               sudo apt update
               sudo apt install -y docker.io
@@ -35,52 +33,32 @@ jobs:
               sudo usermod -aG docker ubuntu
             fi
 
-            # -------------------------------
-            # Fix for DOCKER_CMD (no $ issues)
-            # -------------------------------
-            if docker compose version &> /dev/null; then
-              COMPOSE="docker compose"
-            else
-              COMPOSE="docker-compose"
-            fi
-
-            # -------------------------------
-            # Clone repo (SAFE)
-            # -------------------------------
+            # Clone repo
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${{ secrets.APP_GITHUB_TOKEN }}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
 
             cd FitNLive
 
-            # -------------------------------
-            # Pull latest code (clean)
-            # -------------------------------
+            # Pull latest
             git fetch --all
             git reset --hard origin/main
 
-            # -------------------------------
             # Inject ENV
-            # -------------------------------
             echo "${{ secrets.APP_ENV_FILE }}" > .env
 
-            # -------------------------------
             # Stop old containers
-            # -------------------------------
-            $COMPOSE -f docker-compose.prod.yml down || true
+            docker compose -f docker-compose.prod.yml down || docker-compose -f docker-compose.prod.yml down || true
 
-            # -------------------------------
-            # Build + Start (safe split)
-            # -------------------------------
+            # Build
             echo "🐳 Building..."
-            $COMPOSE -f docker-compose.prod.yml build
+            docker compose -f docker-compose.prod.yml build || docker-compose -f docker-compose.prod.yml build
 
+            # Start
             echo "🚀 Starting..."
-            $COMPOSE -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml up -d || docker-compose -f docker-compose.prod.yml up -d
 
-            # -------------------------------
-            # Debug output
-            # -------------------------------
+            # Debug
             echo "📦 Containers:"
             docker ps
 
