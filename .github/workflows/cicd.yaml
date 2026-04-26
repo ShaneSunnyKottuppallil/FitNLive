@@ -26,7 +26,7 @@ jobs:
           timeout: 300s
           command_timeout: 300s
 
-          # ✅ critical for env passing
+          # 🔥 REQUIRED for env inside remote shell
           envs: GH_TOKEN,ENV_FILE,EC2_HOST
 
           script: |
@@ -58,7 +58,7 @@ jobs:
             fi
 
             # -------------------------------
-            # Clone repo (private safe)
+            # Clone repo (PRIVATE SAFE)
             # -------------------------------
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
@@ -67,7 +67,7 @@ jobs:
             cd FitNLive
 
             # -------------------------------
-            # HARD CLEAN (repo)
+            # HARD CLEAN (prevents stale bugs)
             # -------------------------------
             echo "🧹 Cleaning repo..."
             git fetch --all
@@ -79,10 +79,17 @@ jobs:
             # ENV setup
             # -------------------------------
             echo "$ENV_FILE" > .env
+
             echo "" >> .env
             echo "# --- Auto-generated ---" >> .env
             echo "BASE_URL=http://${EC2_HOST}" >> .env
             echo "STRAVA_REDIRECT_URI=http://${EC2_HOST}/api/strava/callback" >> .env
+
+            # -------------------------------
+            # Fix frontend (your structure)
+            # -------------------------------
+            echo "📦 Preparing frontend..."
+            cp -r frontend/views/* frontend/ || true
 
             # -------------------------------
             # Stop old containers
@@ -97,22 +104,34 @@ jobs:
             docker system prune -af || true
 
             # -------------------------------
-            # Build containers
+            # Build
             # -------------------------------
             echo "🐳 Building..."
             $COMPOSE -f docker-compose.prod.yml build
 
             # -------------------------------
-            # Start containers
+            # Start
             # -------------------------------
             echo "🚀 Starting..."
             $COMPOSE -f docker-compose.prod.yml up -d
 
             # -------------------------------
-            # Debug
+            # Debug: container status
             # -------------------------------
             echo "📦 Running containers:"
             docker ps
 
+            # -------------------------------
+            # 🔥 DEBUG LOGS (CRITICAL)
+            # -------------------------------
+            echo "📜 Backend logs:"
+            docker logs fitnlive-backend-1 || true
+
+            echo "📜 Nginx logs:"
+            docker logs fitnlive-nginx-1 || true
+
+            # -------------------------------
+            # Output
+            # -------------------------------
             echo "🌐 App URL: http://${EC2_HOST}"
             echo "✅ Deployment complete"
