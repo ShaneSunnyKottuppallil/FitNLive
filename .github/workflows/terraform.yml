@@ -1,0 +1,50 @@
+name: Terraform Infra
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: infra
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: ap-south-1
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve \
+          -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+
+      - name: Show EC2 Public IP
+        run: terraform output public_ip
+
+      - name: Capture EC2 IP
+        id: tf_output
+        run: echo "ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
+
+      - name: Update EC2_HOST Secret
+        uses: gliech/create-github-secret-action@v1
+        with:
+          name: EC2_HOST
+          value: ${{ steps.tf_output.outputs.ip }}
+          repository: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
