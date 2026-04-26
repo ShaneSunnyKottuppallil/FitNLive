@@ -2,11 +2,11 @@ version: '3.8'
 
 services:
   nginx:
-    build: ./nginx
+    build:
+      context: ./nginx
     ports:
       - "80:80"
     depends_on:
-      - frontend
       - backend
     restart: always
 
@@ -19,14 +19,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - mongodb     # ✅ no health blocking
-      - mysql
-    restart: always
-
-  frontend:
-    image: nginx:alpine
-    volumes:
-      - ./frontend:/usr/share/nginx/html:ro
+      mongodb:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
     restart: always
 
   mongodb:
@@ -34,7 +30,6 @@ services:
     volumes:
       - mongo_data:/data/db
     restart: always
-    # ✅ removed healthcheck (optional for now)
 
   mysql:
     image: mysql:8
@@ -43,9 +38,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./mysql-init/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     restart: always
-    # ✅ removed fragile healthcheck
 
 volumes:
   mongo_data:
