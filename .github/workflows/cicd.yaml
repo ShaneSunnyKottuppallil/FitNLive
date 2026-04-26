@@ -1,4 +1,4 @@
-name: Deploy Application
+name: Deploy App
 
 on:
   push:
@@ -13,14 +13,14 @@ jobs:
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu   # ✅ FIXED
           key: ${{ secrets.EC2_KEY }}
           script: |
             echo "🚀 Starting deployment..."
 
             # Clone repo if not exists
             if [ ! -d "FitInLive" ]; then
-              git clone https://github.com/${{ github.repository }}.git
+              git clone https://github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
 
             cd FitInLive
@@ -29,7 +29,9 @@ jobs:
             git pull origin main
 
             # Inject environment variables
-            echo "${{ secrets.APP_ENV_FILE }}" > .env
+            cat <<EOF > .env
+${{ secrets.APP_ENV_FILE }}
+EOF
 
             # Stop old containers
             docker-compose -f docker-compose.prod.yml down || true
