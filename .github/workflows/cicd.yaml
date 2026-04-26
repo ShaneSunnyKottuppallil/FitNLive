@@ -10,17 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -------------------------------
-      # Create SSH key file
-      # -------------------------------
-      - name: Prepare SSH Key
-        run: |
-          echo "${{ secrets.EC2_KEY }}" > key.pem
-          chmod 600 key.pem
-
-      # -------------------------------
-      # Deploy via SSH
-      # -------------------------------
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
         env:
@@ -29,9 +18,8 @@ jobs:
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
-          key_path: key.pem
+          key: ${{ secrets.EC2_KEY }}
           port: 22
-          timeout: 60s
 
           script: |
             set -e
@@ -39,7 +27,7 @@ jobs:
             echo "🚀 Starting deployment..."
 
             # -------------------------------
-            # Install Docker (only once)
+            # Install Docker (only if needed)
             # -------------------------------
             if ! command -v docker >/dev/null 2>&1; then
               echo "📦 Installing Docker..."
@@ -50,9 +38,6 @@ jobs:
               sudo usermod -aG docker ubuntu
             fi
 
-            # -------------------------------
-            # Ensure Docker is running
-            # -------------------------------
             sudo systemctl start docker
 
             # -------------------------------
@@ -65,13 +50,18 @@ jobs:
             cd FitNLive
 
             # -------------------------------
-            # Pull latest code (clean)
+            # HARD CLEAN (THIS FIXES YOUR ISSUE)
             # -------------------------------
+            echo "🧹 Cleaning old files..."
             git fetch --all
             git reset --hard origin/main
+            git clean -fd   # 🔥 removes .github and any leftover junk
+
+            # Extra safety (explicit remove)
+            rm -rf .github || true
 
             # -------------------------------
-            # Inject ENV file
+            # Inject ENV
             # -------------------------------
             echo "$ENV_FILE" > .env
 
@@ -83,13 +73,13 @@ jobs:
             # -------------------------------
             # Build containers
             # -------------------------------
-            echo "🐳 Building containers..."
+            echo "🐳 Building..."
             docker compose -f docker-compose.prod.yml build
 
             # -------------------------------
             # Start containers
             # -------------------------------
-            echo "🚀 Starting containers..."
+            echo "🚀 Starting..."
             docker compose -f docker-compose.prod.yml up -d
 
             # -------------------------------
