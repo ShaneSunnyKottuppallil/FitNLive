@@ -13,30 +13,22 @@ jobs:
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ubuntu   # ✅ FIXED
+          username: ubuntu
           key: ${{ secrets.EC2_KEY }}
           script: |
             echo "🚀 Starting deployment..."
 
-            # Clone repo if not exists
             if [ ! -d "FitInLive" ]; then
-              git clone https://github.com/ShaneSunnyKottuppallil/FitNLive.git
+              git clone https://github.com/ShaneSunnyKottuppallil/FitInLive.git
             fi
 
             cd FitInLive
-
-            # Pull latest code
             git pull origin main
 
-            # Inject environment variables
-            cat <<EOF > .env
-${{ secrets.APP_ENV_FILE }}
-EOF
+            # ✅ SAFE ENV INJECTION (no heredoc issues)
+            echo "${{ secrets.APP_ENV_FILE }}" > .env
 
-            # Stop old containers
             docker-compose -f docker-compose.prod.yml down || true
-
-            # Start containers
             docker-compose -f docker-compose.prod.yml up -d --build
 
             echo "✅ Deployment complete"
