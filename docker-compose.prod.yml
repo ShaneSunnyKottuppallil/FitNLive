@@ -1,14 +1,11 @@
-version: '3.8'
-
 services:
   nginx:
     build:
-      context: .                 # ✅ FIXED (was ./nginx)
+      context: .
       dockerfile: nginx/Dockerfile
     ports:
       - "80:80"
     depends_on:
-      - frontend
       - backend
     restart: always
 
@@ -25,12 +22,6 @@ services:
         condition: service_healthy
       mysql:
         condition: service_healthy
-    restart: always
-
-  frontend:
-    image: nginx:alpine
-    volumes:
-      - ./frontend/views:/usr/share/nginx/html:ro   # ✅ serve static files
     restart: always
 
   mongodb:
