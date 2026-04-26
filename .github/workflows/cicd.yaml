@@ -13,17 +13,23 @@ jobs:
     steps:
       - name: 🚀 Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
+
         env:
           GH_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
           ENV_FILE: ${{ secrets.APP_ENV_FILE }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
+
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_KEY }}
           port: 22
+
           timeout: 300s
           command_timeout: 300s
+
+          # 🔥 REQUIRED for passing env into EC2 shell
+          envs: GH_TOKEN,ENV_FILE,EC2_HOST
 
           script: |
             set -e
@@ -63,7 +69,7 @@ jobs:
             cd FitNLive
 
             # -------------------------------
-            # HARD CLEAN (critical)
+            # HARD CLEAN (prevents stale bugs)
             # -------------------------------
             echo "🧹 Cleaning repo..."
             git fetch --all
@@ -72,12 +78,12 @@ jobs:
             rm -rf .github || true
 
             # -------------------------------
-            # Inject ENV (base file)
+            # Inject ENV
             # -------------------------------
             echo "$ENV_FILE" > .env
 
             # -------------------------------
-            # Inject dynamic values (NO manual edits needed)
+            # Inject dynamic values
             # -------------------------------
             echo "" >> .env
             echo "# --- Auto-generated ---" >> .env
@@ -90,19 +96,19 @@ jobs:
             $COMPOSE -f docker-compose.prod.yml down || true
 
             # -------------------------------
-            # Build
+            # Build containers
             # -------------------------------
             echo "🐳 Building..."
             $COMPOSE -f docker-compose.prod.yml build
 
             # -------------------------------
-            # Start
+            # Start containers
             # -------------------------------
             echo "🚀 Starting..."
             $COMPOSE -f docker-compose.prod.yml up -d
 
             # -------------------------------
-            # Debug
+            # Debug output
             # -------------------------------
             echo "📦 Running containers:"
             docker ps
