@@ -10,11 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Prepare SSH key
+      # -------------------------------
+      # Create SSH key file
+      # -------------------------------
+      - name: Prepare SSH Key
         run: |
           echo "${{ secrets.EC2_KEY }}" > key.pem
           chmod 600 key.pem
 
+      # -------------------------------
+      # Deploy via SSH
+      # -------------------------------
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
         env:
@@ -25,45 +31,71 @@ jobs:
           username: ubuntu
           key_path: key.pem
           port: 22
+          timeout: 60s
 
           script: |
             set -e
 
             echo "🚀 Starting deployment..."
 
-            # Install Docker if missing
+            # -------------------------------
+            # Install Docker (only once)
+            # -------------------------------
             if ! command -v docker >/dev/null 2>&1; then
-              sudo apt update
+              echo "📦 Installing Docker..."
+              sudo apt update -y
               sudo apt install -y docker.io
               sudo systemctl start docker
               sudo systemctl enable docker
               sudo usermod -aG docker ubuntu
             fi
 
+            # -------------------------------
+            # Ensure Docker is running
+            # -------------------------------
+            sudo systemctl start docker
+
+            # -------------------------------
             # Clone repo if not exists
+            # -------------------------------
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
 
             cd FitNLive
 
-            # Pull latest
+            # -------------------------------
+            # Pull latest code (clean)
+            # -------------------------------
             git fetch --all
             git reset --hard origin/main
 
-            # Inject ENV
+            # -------------------------------
+            # Inject ENV file
+            # -------------------------------
             echo "$ENV_FILE" > .env
 
+            # -------------------------------
             # Stop old containers
+            # -------------------------------
             docker compose -f docker-compose.prod.yml down || true
 
-            # Build
+            # -------------------------------
+            # Build containers
+            # -------------------------------
+            echo "🐳 Building containers..."
             docker compose -f docker-compose.prod.yml build
 
-            # Start
+            # -------------------------------
+            # Start containers
+            # -------------------------------
+            echo "🚀 Starting containers..."
             docker compose -f docker-compose.prod.yml up -d
 
-            # Debug
+            # -------------------------------
+            # Debug info
+            # -------------------------------
+            echo "📦 Running containers:"
             docker ps
 
             echo "✅ Deployment complete"
