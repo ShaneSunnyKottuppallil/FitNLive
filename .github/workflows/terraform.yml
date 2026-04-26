@@ -16,23 +16,25 @@ jobs:
         working-directory: infra
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
-          
+          aws-region: ap-south-1   # ✅ fixed
+
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve \
-          -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+        run: terraform apply -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+        # ✅ fixed (single-line, no backslash issue)
 
       - name: Show EC2 Public IP
         run: terraform output public_ip
