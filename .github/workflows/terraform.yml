@@ -27,14 +27,13 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1   # ✅ fixed
+          aws-region: ap-south-1
 
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Apply
         run: terraform apply -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
-        # ✅ fixed (single-line, no backslash issue)
 
       - name: Show EC2 Public IP
         run: terraform output public_ip
