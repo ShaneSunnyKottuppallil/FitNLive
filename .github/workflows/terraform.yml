@@ -2,6 +2,15 @@ name: Terraform Infra
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform Action"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
 
 permissions:
   contents: read
@@ -30,25 +39,35 @@ jobs:
           aws-region: ap-south-1
 
       - name: Terraform Init
-        run: |
-          terraform init
+        run: terraform init
 
+      # 🔥 APPLY
       - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
         run: |
-          echo "Running Terraform Apply..."
+          echo "🚀 Running Terraform Apply..."
           terraform apply -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
 
-      - name: Show EC2 Public IP
+      # 🔥 DESTROY
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
         run: |
-          terraform output public_ip
+          echo "🔥 Running Terraform Destroy..."
+          terraform destroy -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+
+      # ✅ ONLY RUN THESE AFTER APPLY
+      - name: Show EC2 Public IP
+        if: ${{ github.event.inputs.action == 'apply' }}
+        run: terraform output public_ip
 
       - name: Capture EC2 IP
+        if: ${{ github.event.inputs.action == 'apply' }}
         id: tf_output
         run: |
           echo "ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
 
-      # ✅ FIXED SECRET UPDATE STEP
       - name: Update EC2_HOST Secret
+        if: ${{ github.event.inputs.action == 'apply' }}
         uses: gliech/create-github-secret-action@v1
         with:
           name: EC2_HOST
