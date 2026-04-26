@@ -16,6 +16,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
           ENV_FILE: ${{ secrets.APP_ENV_FILE }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -71,9 +72,17 @@ jobs:
             rm -rf .github || true
 
             # -------------------------------
-            # Inject ENV
+            # Inject ENV (base file)
             # -------------------------------
             echo "$ENV_FILE" > .env
+
+            # -------------------------------
+            # Inject dynamic values (NO manual edits needed)
+            # -------------------------------
+            echo "" >> .env
+            echo "# --- Auto-generated ---" >> .env
+            echo "BASE_URL=http://${EC2_HOST}" >> .env
+            echo "STRAVA_REDIRECT_URI=http://${EC2_HOST}/api/strava/callback" >> .env
 
             # -------------------------------
             # Stop old containers
@@ -98,4 +107,5 @@ jobs:
             echo "📦 Running containers:"
             docker ps
 
+            echo "🌐 App URL: http://${EC2_HOST}"
             echo "✅ Deployment complete"
