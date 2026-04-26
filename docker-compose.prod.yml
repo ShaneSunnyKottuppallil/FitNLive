@@ -3,10 +3,12 @@ version: '3.8'
 services:
   nginx:
     build:
-      context: ./nginx
+      context: .                 # ✅ FIXED (was ./nginx)
+      dockerfile: nginx/Dockerfile
     ports:
       - "80:80"
     depends_on:
+      - frontend
       - backend
     restart: always
 
@@ -25,10 +27,21 @@ services:
         condition: service_healthy
     restart: always
 
+  frontend:
+    image: nginx:alpine
+    volumes:
+      - ./frontend/views:/usr/share/nginx/html:ro   # ✅ serve static files
+    restart: always
+
   mongodb:
     image: mongo:6
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
 
   mysql:
@@ -38,6 +51,12 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql-init/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
 
 volumes:

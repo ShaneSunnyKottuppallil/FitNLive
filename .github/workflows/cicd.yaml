@@ -25,13 +25,20 @@ jobs:
           port: 22
           timeout: 300s
           command_timeout: 300s
+
+          # ✅ critical for env passing
           envs: GH_TOKEN,ENV_FILE,EC2_HOST
 
           script: |
             set -e
+
             echo "🚀 Starting deployment..."
 
+            # -------------------------------
+            # Install Docker (if missing)
+            # -------------------------------
             if ! command -v docker >/dev/null 2>&1; then
+              echo "📦 Installing Docker..."
               sudo apt update -y
               sudo apt install -y docker.io
               sudo systemctl start docker
@@ -41,33 +48,71 @@ jobs:
 
             sudo systemctl start docker
 
+            # -------------------------------
+            # Detect docker compose
+            # -------------------------------
             if docker compose version >/dev/null 2>&1; then
               COMPOSE="docker compose"
             else
               COMPOSE="docker-compose"
             fi
 
+            # -------------------------------
+            # Clone repo (private safe)
+            # -------------------------------
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
 
             cd FitNLive
 
+            # -------------------------------
+            # HARD CLEAN (repo)
+            # -------------------------------
+            echo "🧹 Cleaning repo..."
             git fetch --all
             git reset --hard origin/main
             git clean -fd
             rm -rf .github || true
 
+            # -------------------------------
+            # ENV setup
+            # -------------------------------
             echo "$ENV_FILE" > .env
             echo "" >> .env
+            echo "# --- Auto-generated ---" >> .env
             echo "BASE_URL=http://${EC2_HOST}" >> .env
             echo "STRAVA_REDIRECT_URI=http://${EC2_HOST}/api/strava/callback" >> .env
 
+            # -------------------------------
+            # Stop old containers
+            # -------------------------------
+            echo "🛑 Stopping old containers..."
             $COMPOSE -f docker-compose.prod.yml down || true
+
+            # -------------------------------
+            # 🔥 CLEAN DOCKER (your request)
+            # -------------------------------
+            echo "🧹 Pruning Docker..."
+            docker system prune -af || true
+
+            # -------------------------------
+            # Build containers
+            # -------------------------------
+            echo "🐳 Building..."
             $COMPOSE -f docker-compose.prod.yml build
+
+            # -------------------------------
+            # Start containers
+            # -------------------------------
+            echo "🚀 Starting..."
             $COMPOSE -f docker-compose.prod.yml up -d
 
+            # -------------------------------
+            # Debug
+            # -------------------------------
+            echo "📦 Running containers:"
             docker ps
 
-            echo "🌐 http://${EC2_HOST}"
+            echo "🌐 App URL: http://${EC2_HOST}"
             echo "✅ Deployment complete"
