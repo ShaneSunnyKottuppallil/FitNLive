@@ -81,4 +81,4 @@ jobs:
             $DOCKER_CMD compose -f docker-compose.prod.yml down || true
             $DOCKER_CMD compose -f docker-compose.prod.yml up -d --build
 
-            echo "✅ Deployment complete"
+            echo "✅ Deployment complete."
