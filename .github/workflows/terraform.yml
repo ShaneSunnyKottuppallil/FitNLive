@@ -30,17 +30,23 @@ jobs:
           aws-region: ap-south-1
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init
 
+      # ✅ BULLETPROOF APPLY (no YAML parsing issues)
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+        run: |
+          echo "Running Terraform Apply..."
+          terraform apply -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
 
       - name: Show EC2 Public IP
-        run: terraform output public_ip
+        run: |
+          terraform output public_ip
 
       - name: Capture EC2 IP
         id: tf_output
-        run: echo "ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
+        run: |
+          echo "ip=$(terraform output -raw public_ip)" >> $GITHUB_OUTPUT
 
       - name: Update EC2_HOST Secret
         uses: gliech/create-github-secret-action@v1
