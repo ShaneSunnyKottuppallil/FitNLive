@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2 via SSH
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -28,13 +28,13 @@ jobs:
             # Pull latest code
             git pull origin main
 
-            # Inject env securely
+            # Inject environment variables
             echo "${{ secrets.APP_ENV_FILE }}" > .env
 
             # Stop old containers
-            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml down || true
 
-            # Start fresh build
+            # Start containers
             docker-compose -f docker-compose.prod.yml up -d --build
 
             echo "✅ Deployment complete"
