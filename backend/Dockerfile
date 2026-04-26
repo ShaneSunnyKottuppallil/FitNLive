@@ -1,4 +1,3 @@
-# Base image
 FROM node:20-bullseye-slim
 
 ARG APP_UID=1000
@@ -16,36 +15,28 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # -------------------------------
-# Create non-root user
+# Create user
 # -------------------------------
 RUN set -eux; \
-    if ! getent group ${APP_GID}; then \
-        groupadd -g ${APP_GID} appuser; \
-    fi; \
+    if ! getent group ${APP_GID}; then groupadd -g ${APP_GID} appuser; fi; \
     if ! id -u ${APP_UID} >/dev/null 2>&1; then \
         useradd -u ${APP_UID} -g ${APP_GID} -m -d ${APP_HOME} -s /usr/sbin/nologin appuser; \
     fi
 
 # -------------------------------
-# Copy dependency files
+# Install dependencies
 # -------------------------------
 COPY backend/package*.json ./backend/
-
-# Install deps
 WORKDIR ${APP_HOME}/backend
 RUN npm install --omit=dev --silent
 
 # -------------------------------
-# Copy backend
+# Copy source
 # -------------------------------
 COPY backend/ ${APP_HOME}/backend/
-
-# -------------------------------
-# Copy frontend (FIXED PATH)
-# -------------------------------
 COPY frontend/ ${APP_HOME}/frontend/
 
-# 🔥 CRITICAL FIX (your structure issue)
+# 🔥 Fix your frontend structure
 RUN cp -r ${APP_HOME}/frontend/views/* ${APP_HOME}/frontend/
 
 # -------------------------------
@@ -59,4 +50,5 @@ EXPOSE 5000
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-CMD ["node", "backend/server.js"]
+# ✅ THIS IS THE FIX
+CMD ["node", "server.js"]
