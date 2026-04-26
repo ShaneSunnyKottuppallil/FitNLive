@@ -28,7 +28,7 @@ jobs:
           timeout: 300s
           command_timeout: 300s
 
-          # 🔥 REQUIRED for passing env into EC2 shell
+          # 🔥 VERY IMPORTANT (fixes your earlier errors)
           envs: GH_TOKEN,ENV_FILE,EC2_HOST
 
           script: |
@@ -69,26 +69,36 @@ jobs:
             cd FitNLive
 
             # -------------------------------
-            # HARD CLEAN (prevents stale bugs)
+            # HARD CLEAN (critical fix)
             # -------------------------------
             echo "🧹 Cleaning repo..."
             git fetch --all
             git reset --hard origin/main
             git clean -fd
+
+            # ❗ remove workflows from server (prevents recursion bugs)
             rm -rf .github || true
 
             # -------------------------------
-            # Inject ENV
+            # ENV setup
             # -------------------------------
             echo "$ENV_FILE" > .env
 
-            # -------------------------------
-            # Inject dynamic values
-            # -------------------------------
+            # Dynamic injection (NO GitHub interpolation here)
             echo "" >> .env
             echo "# --- Auto-generated ---" >> .env
             echo "BASE_URL=http://${EC2_HOST}" >> .env
             echo "STRAVA_REDIRECT_URI=http://${EC2_HOST}/api/strava/callback" >> .env
+
+            # -------------------------------
+            # IMPORTANT FIX (your frontend path)
+            # -------------------------------
+            # Your index.html is inside frontend/views
+            # nginx expects it at /usr/share/nginx/html
+            # So copy it before build
+
+            echo "📦 Preparing frontend..."
+            cp -r frontend/views/* frontend/ || true
 
             # -------------------------------
             # Stop old containers
@@ -96,19 +106,19 @@ jobs:
             $COMPOSE -f docker-compose.prod.yml down || true
 
             # -------------------------------
-            # Build containers
+            # Build
             # -------------------------------
             echo "🐳 Building..."
             $COMPOSE -f docker-compose.prod.yml build
 
             # -------------------------------
-            # Start containers
+            # Start
             # -------------------------------
             echo "🚀 Starting..."
             $COMPOSE -f docker-compose.prod.yml up -d
 
             # -------------------------------
-            # Debug output
+            # Debug
             # -------------------------------
             echo "📦 Running containers:"
             docker ps
