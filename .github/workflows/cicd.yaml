@@ -31,23 +31,24 @@ jobs:
             set -e
             echo "Starting deployment..."
 
-            # Install Docker + Compose
-            if ! command -v docker >/dev/null 2>&1; then
-              sudo apt update -y
-              sudo apt install -y docker.io docker-compose-plugin
-
-              sudo systemctl start docker
-              sudo systemctl enable docker
-
-              sudo usermod -aG docker ubuntu
-            fi
-
+            # Ensure docker running
             sudo systemctl start docker
 
-            # Fix docker permissions
+            # Fix docker permission
             sudo chmod 666 /var/run/docker.sock
 
-            COMPOSE="docker compose"
+            # 🔥 ALWAYS use docker-compose
+            COMPOSE="docker-compose"
+
+            # Verify compose exists
+            if ! command -v docker-compose >/dev/null 2>&1; then
+              echo "docker-compose not found. Installing..."
+              sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+                -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+            fi
+
+            docker-compose version
 
             # Clone repo if not exists
             if [ ! -d "FitNLive" ]; then
@@ -56,10 +57,10 @@ jobs:
 
             cd FitNLive
 
-            # 🔥 FIX PERMISSIONS (VERY IMPORTANT)
+            # Fix ownership
             sudo chown -R ubuntu:ubuntu /home/ubuntu/FitNLive || true
 
-            # Clean repo safely
+            # Clean repo
             git fetch --all
             git reset --hard origin/main
             git clean -fd
@@ -73,15 +74,9 @@ jobs:
             # Stop containers
             $COMPOSE -f docker-compose.prod.yml down || true
 
-            # Cleanup safely
+            # Cleanup
             docker ps -aq | xargs -r docker rm -f
             docker system prune -af || true
-
-            # 🔍 Verify nginx config exists
-            if [ ! -f "nginx/nginx.conf" ]; then
-              echo "ERROR: nginx/nginx.conf not found"
-              exit 1
-            fi
 
             # Build & start
             $COMPOSE -f docker-compose.prod.yml build
@@ -96,5 +91,4 @@ jobs:
             echo "Nginx logs:"
             docker logs nginx || true
 
-            echo "http://${EC2_HOST}"
             echo "Deployment complete"
