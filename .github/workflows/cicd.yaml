@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🚀 Deploy via SSH
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v0.1.6
 
         env:
@@ -29,27 +29,29 @@ jobs:
 
           script: |
             set -e
-            echo "🚀 Starting deployment..."
+            echo "Starting deployment..."
 
-            # Install Docker
+            # Install Docker + Compose properly
             if ! command -v docker >/dev/null 2>&1; then
               sudo apt update -y
-              sudo apt install -y docker.io
+              sudo apt install -y docker.io docker-compose-plugin
+
               sudo systemctl start docker
               sudo systemctl enable docker
+
               sudo usermod -aG docker ubuntu
             fi
 
+            # Ensure docker running
             sudo systemctl start docker
 
-            # Detect compose
-            if docker compose version >/dev/null 2>&1; then
-              COMPOSE="docker compose"
-            else
-              COMPOSE="docker-compose"
-            fi
+            # Fix permission (CRITICAL for GitHub Actions SSH)
+            sudo chmod 666 /var/run/docker.sock
 
-            # Clone repo
+            # Always use docker compose (v2)
+            COMPOSE="docker compose"
+
+            # Clone repo if not exists
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
@@ -62,7 +64,7 @@ jobs:
             git clean -fd
             rm -rf .github || true
 
-            # ENV
+            # ENV setup
             printf "%s" "$ENV_FILE" > .env
             echo "" >> .env
             echo "BASE_URL=http://${EC2_HOST}" >> .env
@@ -71,8 +73,8 @@ jobs:
             # Stop containers
             $COMPOSE -f docker-compose.prod.yml down || true
 
-            # FULL cleanup (ensures no frontend/nginx conflicts)
-            docker rm -f $(docker ps -aq) || true
+            # Safe cleanup
+            docker ps -aq | xargs -r docker rm -f
             docker system prune -af || true
 
             # Build & start
@@ -82,11 +84,11 @@ jobs:
             # Debug
             docker ps
 
-            echo "📜 Backend logs:"
+            echo "Backend logs:"
             docker logs fitnlive-backend-1 || true
 
-            echo "📜 Nginx logs:"
+            echo "Nginx logs:"
             docker logs fitnlive-nginx-1 || true
 
-            echo "🌐 http://${EC2_HOST}"
-            echo "✅ Deployment complete"
+            echo "http://${EC2_HOST}"
+            echo "Deployment complete"
