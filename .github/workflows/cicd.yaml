@@ -31,10 +31,10 @@ jobs:
             set -e
             echo "Starting deployment..."
 
-            # Install Docker + Compose properly
+            # Install Docker
             if ! command -v docker >/dev/null 2>&1; then
               sudo apt update -y
-              sudo apt install -y docker.io docker-compose-plugin
+              sudo apt install -y docker.io
 
               sudo systemctl start docker
               sudo systemctl enable docker
@@ -42,16 +42,22 @@ jobs:
               sudo usermod -aG docker ubuntu
             fi
 
+            # Install docker-compose (standalone v1)
+            if ! command -v docker-compose >/dev/null 2>&1; then
+              sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+                -o /usr/local/bin/docker-compose
+              sudo chmod +x /usr/local/bin/docker-compose
+            fi
+
             # Ensure docker running
             sudo systemctl start docker
 
-            # Fix permission (CRITICAL for GitHub Actions SSH)
+            # Fix permission
             sudo chmod 666 /var/run/docker.sock
 
-            # Always use docker compose (v2)
-            COMPOSE="docker compose"
+            COMPOSE="docker-compose"
 
-            # Clone repo if not exists
+            # Clone repo
             if [ ! -d "FitNLive" ]; then
               git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
             fi
@@ -64,7 +70,7 @@ jobs:
             git clean -fd
             rm -rf .github || true
 
-            # ENV setup
+            # ENV
             printf "%s" "$ENV_FILE" > .env
             echo "" >> .env
             echo "BASE_URL=http://${EC2_HOST}" >> .env
@@ -73,7 +79,7 @@ jobs:
             # Stop containers
             $COMPOSE -f docker-compose.prod.yml down || true
 
-            # Safe cleanup
+            # Cleanup safely
             docker ps -aq | xargs -r docker rm -f
             docker system prune -af || true
 
