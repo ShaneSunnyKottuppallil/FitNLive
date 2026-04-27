@@ -30,5 +30,4 @@ mkdir -p /home/ec2-user/FitInLive
 
 # Set ownership
 chown -R ec2-user:ec2-user /home/ec2-user/FitInLive
-
 echo "✅ EC2 setup complete"
