@@ -41,24 +41,27 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      # 🔥 APPLY
       - name: Terraform Apply
         if: ${{ github.event.inputs.action == 'apply' }}
         run: |
-          echo "🚀 Running Terraform Apply..."
-          terraform apply -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+          terraform apply -auto-approve \
+            -var="key_name=${{ secrets.EC2_KEY_NAME }}" \
+            -var="domain=fitnlive.online"
 
-      # 🔥 DESTROY
       - name: Terraform Destroy
         if: ${{ github.event.inputs.action == 'destroy' }}
         run: |
-          echo "🔥 Running Terraform Destroy..."
-          terraform destroy -auto-approve -var="key_name=${{ secrets.EC2_KEY_NAME }}"
+          terraform destroy -auto-approve \
+            -var="key_name=${{ secrets.EC2_KEY_NAME }}" \
+            -var="domain=fitnlive.online"
 
-      # ✅ ONLY RUN THESE AFTER APPLY
       - name: Show EC2 Public IP
         if: ${{ github.event.inputs.action == 'apply' }}
         run: terraform output public_ip
+
+      - name: Show ALB DNS
+        if: ${{ github.event.inputs.action == 'apply' }}
+        run: terraform output alb_dns
 
       - name: Capture EC2 IP
         if: ${{ github.event.inputs.action == 'apply' }}

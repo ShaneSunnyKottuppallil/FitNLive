@@ -10,3 +10,8 @@ variable "key_name" {
   description = "EC2 key pair name"
   type        = string
 }
+
+variable "domain" {
+  description = "Domain name"
+  type        = string
+}
