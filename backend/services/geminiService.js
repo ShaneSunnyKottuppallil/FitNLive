@@ -141,3 +141,4 @@ async function getGeminiResponse(userId, userPrompt, sessionId, agentType = "gen
 }
 
 module.exports = { getGeminiResponse };
+
