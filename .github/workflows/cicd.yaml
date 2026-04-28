@@ -1,94 +1,103 @@
 name: Deploy to EC2
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+push:
+branches: [main]
+workflow_dispatch:
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+deploy:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.6
+```
+steps:
+  - name: Deploy via SSH
+    uses: appleboy/ssh-action@v0.1.6
 
-        env:
-          GH_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
-          ENV_FILE: ${{ secrets.APP_ENV_FILE }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
+    env:
+      GH_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
+      ENV_FILE: ${{ secrets.APP_ENV_FILE }}
+      EC2_HOST: ${{ secrets.EC2_HOST }}
 
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_KEY }}
-          port: 22
-          timeout: 300s
-          command_timeout: 300s
-          envs: GH_TOKEN,ENV_FILE,EC2_HOST
+    with:
+      host: ${{ secrets.EC2_HOST }}
+      username: ubuntu
+      key: ${{ secrets.EC2_KEY }}
+      port: 22
+      timeout: 300s
+      command_timeout: 300s
+      envs: GH_TOKEN,ENV_FILE,EC2_HOST
 
-          script: |
-            set -e
-            echo "Starting deployment..."
+      script: |
+        set -e
+        echo "Starting deployment..."
 
-            # Ensure docker running
-            sudo systemctl start docker
+        # Ensure docker running
+        sudo systemctl start docker
 
-            # Fix docker permission
-            sudo chmod 666 /var/run/docker.sock
+        # Fix docker permission
+        sudo chmod 666 /var/run/docker.sock
 
-            # 🔥 ALWAYS use docker-compose
-            COMPOSE="docker-compose"
+        # Detect compose command
+        if command -v docker-compose >/dev/null 2>&1; then
+          COMPOSE="docker-compose"
+        else
+          COMPOSE="docker compose"
+        fi
 
-            # Verify compose exists
-            if ! command -v docker-compose >/dev/null 2>&1; then
-              echo "docker-compose not found. Installing..."
-              sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
-                -o /usr/local/bin/docker-compose
-              sudo chmod +x /usr/local/bin/docker-compose
-            fi
+        # Install docker-compose if missing
+        if ! command -v docker-compose >/dev/null 2>&1 && ! docker compose version >/dev/null 2>&1; then
+          echo "docker-compose not found. Installing..."
+          sudo curl -L https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+            -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          COMPOSE="docker-compose"
+        fi
 
-            docker-compose version
+        $COMPOSE version
 
-            # Clone repo if not exists
-            if [ ! -d "FitNLive" ]; then
-              git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
-            fi
+        # Ensure clean repo (fix for corrupted/non-git folder)
+        if [ ! -d "FitNLive/.git" ]; then
+          echo "Fresh clone..."
+          rm -rf FitNLive
+          git clone https://x-access-token:${GH_TOKEN}@github.com/ShaneSunnyKottuppallil/FitNLive.git
+        fi
 
-            cd FitNLive
+        cd FitNLive
 
-            # Fix ownership
-            sudo chown -R ubuntu:ubuntu /home/ubuntu/FitNLive || true
+        # Fix ownership
+        sudo chown -R ubuntu:ubuntu /home/ubuntu/FitNLive || true
 
-            # Clean repo
-            git fetch --all
-            git reset --hard origin/main
-            git clean -fd
+        # Clean repo properly
+        git fetch --all
+        git reset --hard origin/main
+        git clean -fd
 
-            # ENV setup
-            printf "%s" "$ENV_FILE" > .env
-            echo "" >> .env
-            echo "BASE_URL=http://${EC2_HOST}" >> .env
-            echo "STRAVA_REDIRECT_URI=http://${EC2_HOST}/api/strava/callback" >> .env
+        # ENV setup
+        printf "%s" "$ENV_FILE" > .env
+        echo "" >> .env
+        echo "BASE_URL=http://${EC2_HOST}" >> .env
+        echo "STRAVA_REDIRECT_URI=http://${EC2_HOST}/api/strava/callback" >> .env
 
-            # Stop containers
-            $COMPOSE -f docker-compose.prod.yml down || true
+        # Stop containers
+        $COMPOSE -f docker-compose.prod.yml down || true
 
-            # Cleanup
-            docker ps -aq | xargs -r docker rm -f
-            docker system prune -af || true
+        # Cleanup old containers/images
+        docker ps -aq | xargs -r docker rm -f
+        docker system prune -af || true
 
-            # Build & start
-            $COMPOSE -f docker-compose.prod.yml build
-            $COMPOSE -f docker-compose.prod.yml up -d
+        # Build & start
+        $COMPOSE -f docker-compose.prod.yml build
+        $COMPOSE -f docker-compose.prod.yml up -d
 
-            # Debug
-            docker ps
+        # Debug
+        docker ps
 
-            echo "Backend logs:"
-            docker logs fitnlive-backend-1 || true
+        echo "Backend logs:"
+        docker logs fitnlive-backend-1 || true
 
-            echo "Nginx logs:"
-            docker logs nginx || true
+        echo "Nginx logs:"
+        docker logs nginx || true
 
-            echo "Deployment complete"
+        echo "Deployment complete"
+```
