@@ -30,15 +30,12 @@ resource "aws_lb_target_group_attachment" "app" {
 }
 
 # -------------------------------
-# ACM CERT
+# EXISTING ACM CERT (IMPORTANT)
 # -------------------------------
-resource "aws_acm_certificate" "cert" {
-  domain_name       = var.domain
-  validation_method = "DNS"
-
-  lifecycle {
-    create_before_destroy = true
-  }
+data "aws_acm_certificate" "existing" {
+  domain      = var.domain   # e.g. fitnlive.online
+  statuses    = ["ISSUED"]
+  most_recent = true
 }
 
 # -------------------------------
@@ -50,7 +47,7 @@ resource "aws_lb_listener" "https" {
   protocol          = "HTTPS"
 
   ssl_policy      = "ELBSecurityPolicy-2016-08"
-  certificate_arn = aws_acm_certificate.cert.arn
+  certificate_arn = data.aws_acm_certificate.existing.arn
 
   default_action {
     type             = "forward"
