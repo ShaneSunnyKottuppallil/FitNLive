@@ -2,7 +2,8 @@ name: Deploy to EC2
 
 on:
 push:
-branches: [main]
+branches:
+- main
 workflow_dispatch:
 
 jobs:
@@ -13,12 +14,10 @@ runs-on: ubuntu-latest
 steps:
   - name: Deploy via SSH
     uses: appleboy/ssh-action@v0.1.6
-
     env:
       GH_TOKEN: ${{ secrets.APP_GITHUB_TOKEN }}
       ENV_FILE: ${{ secrets.APP_ENV_FILE }}
       EC2_HOST: ${{ secrets.EC2_HOST }}
-
     with:
       host: ${{ secrets.EC2_HOST }}
       username: ubuntu
@@ -27,18 +26,17 @@ steps:
       timeout: 300s
       command_timeout: 300s
       envs: GH_TOKEN,ENV_FILE,EC2_HOST
-
       script: |
         set -e
         echo "Starting deployment..."
 
-        # Ensure docker running
+        # Ensure docker is running
         sudo systemctl start docker
 
-        # Fix docker permission
+        # Fix docker socket permission
         sudo chmod 666 /var/run/docker.sock
 
-        # Detect compose command
+        # Detect docker compose command
         if command -v docker-compose >/dev/null 2>&1; then
           COMPOSE="docker-compose"
         else
@@ -56,7 +54,7 @@ steps:
 
         $COMPOSE version
 
-        # Ensure clean repo (fix for corrupted/non-git folder)
+        # Ensure clean repo (fix corrupted repo issue)
         if [ ! -d "FitNLive/.git" ]; then
           echo "Fresh clone..."
           rm -rf FitNLive
@@ -68,29 +66,29 @@ steps:
         # Fix ownership
         sudo chown -R ubuntu:ubuntu /home/ubuntu/FitNLive || true
 
-        # Clean repo properly
+        # Sync latest code
         git fetch --all
         git reset --hard origin/main
         git clean -fd
 
-        # ENV setup
+        # Setup ENV file
         printf "%s" "$ENV_FILE" > .env
         echo "" >> .env
         echo "BASE_URL=http://${EC2_HOST}" >> .env
         echo "STRAVA_REDIRECT_URI=http://${EC2_HOST}/api/strava/callback" >> .env
 
-        # Stop containers
+        # Stop existing containers
         $COMPOSE -f docker-compose.prod.yml down || true
 
-        # Cleanup old containers/images
+        # Cleanup
         docker ps -aq | xargs -r docker rm -f
         docker system prune -af || true
 
-        # Build & start
+        # Build & start containers
         $COMPOSE -f docker-compose.prod.yml build
         $COMPOSE -f docker-compose.prod.yml up -d
 
-        # Debug
+        # Debug running containers
         docker ps
 
         echo "Backend logs:"
@@ -101,4 +99,3 @@ steps:
 
         echo "Deployment complete"
 ```
-
